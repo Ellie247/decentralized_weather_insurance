@@ -225,6 +225,163 @@
     Early blockchain pilots such as Etherisc's indicate promising pathways to reduce administrative costs and improve transparency, but scaling such solutions will depend on robust data infrastructure, effective oracles, and farmer-centric design.
     Overall, the market reflects both a large protection gap and a significant opportunity, as innovative, technology-enabled models that combine affordability, transparency, and mobile integration have the potential to transform risk management for Kenya's smallholder farmers.
 
+\section{Business Model}
+
+\subsection{Overview}
+The Rainy Day Fund is conceived as a two-sided parametric insurance marketplace. Farmers acquire seasonal drought coverage through ERC-20 policy tokens, while investors provide liquidity to an ERC-4626 vault and receive proportional shares. The smart contract governs issuance, pooling and payouts. By automating these processes, the design reduces administrative overhead and shifts both pricing and risk allocation to a market-based mechanism.
+
+\subsection{Problem and Customer Segments}
+Smallholder farmers in Kenya face recurrent rainfall shocks yet lack access to formal insurance. Barriers include high distribution costs, limited actuarial data and weak trust in traditional insurers. These constraints have been documented as central obstacles to microinsurance adoption ~\parencite{cole2013barriers}. On the capital side, impact-oriented investors seek transparent and uncorrelated exposures. The platform connects these two groups, while cooperatives, NGOs, and mobile operators act as distribution partners and trust anchors.
+
+\subsection{Value Propositions}
+For farmers, the value lies in affordable coverage and automatic payouts indexed to rainfall thresholds, settled via mobile money systems such as M-Pesa. Investors gain standardized exposure to agricultural risk with measurable returns, enabling diversification of conventional portfolios. Distribution partners benefit from reduced leakage and transparent performance metrics that improve accountability.
+
+\subsection{Revenue Model}
+Premiums collected from farmers constitute the gross inflow into the vault. Investor returns correspond to the surplus of premiums over payouts, distributed proportionally through vault shares. Pricing is entirely market-based: the clearing premium $p^\ast$ and yield $R^\ast$ are determined exclusively by the double auction. Operational costs $F$ are deducted only after clearing, reducing realized investor cashflows but never altering the premium itself. Anticipation of $F$ is reflected in investor bids, ensuring that the mechanism remains market-driven.
+
+The operator may allocate its own capital into the pool. This dual role enhances credibility by aligning operator and investor incentives, while also providing a potential revenue stream if realized claims remain below expectations. A fee of approximately 2--5\% of collected premiums covers infrastructure, audits, and compliance. Catastrophic tail risk can be transferred to reinsurers, thereby stabilizing investor yields and limiting extreme downside ~\parencite{cummins2009catastrophe}.
+
+ERC-4626 vault shares accumulate value as premiums are credited and claims deducted. Surpluses are automatically reinvested, producing a compounding effect analogous to conventional interest-bearing assets.
+
+\subsection{Cost Structure}
+The principal cost drivers are oracle services, secure data feeds, contract audits, regulatory engagement, payment integration, and farmer outreach. Administrative costs remain substantially lower than in conventional microinsurance due to full automation. As the pool scales, marginal costs decrease, generating economies of scale.
+
+\subsection{Channels and Partnerships}
+Farmer onboarding is mediated by cooperatives, NGOs, and agro-dealers, which provide both distribution and local trust. Premium collection and payouts are facilitated through M-Pesa integration. Rainfall indices are delivered by oracle providers ~\parencite{egberts2017oracle}. Reinsurers offer capacity for extreme events. Regulators and development agencies ensure compliance and support legitimacy.
+
+\subsection{Scalability}
+The model generalizes from Kenyan maize to other crops, regions, and perils such as livestock mortality or flood. ERC token standards allow interoperability with decentralized finance protocols and secondary markets for risk exposure. The prediction-market auction improves with scale, as larger participation sharpens price discovery. Modular system design allows adaptation to heterogeneous regulatory environments.
+
+\subsection{Claim Process and Payout Logic}
+Farmers must file a minimal on-chain claim (notice-of-loss) during a window $[t_0,t_1]$ following oracle publication. The contract verifies three conditions: (i) token ownership $q>0$ for the epoch, (ii) uniqueness of the claim, and (iii) eligibility, i.e. the rainfall index $I$ satisfies $I \le \tau$. If all conditions hold, the contract transfers $qL$ (or a pro-rata share if rationing applies) from the vault to the claimant’s wallet; otherwise the transaction reverts. Operational costs $F$ are deducted before distribution. No off-chain adjusters or discretionary assessments occur.\footnote{A claim call is required to (i) prevent automatic transfers to inactive or lost wallets, (ii) avoid payouts below gas cost, and (iii) allow farmers to specify their payout rail, e.g. an M-Pesa bridge.}
+
+\section{Mechanism Design}
+
+Premiums and investor yields are discovered through a pre-season sealed-bid uniform-price auction, which functions as a prediction market for drought risk ~\parencite{wilson1979auctions,ausubel2002demand,hanson2003market,wolfers2004prediction}.
+
+\textit{Design constraint (market-based pricing only).} The protocol sets $(p^\ast,R^\ast)$ exclusively from submitted bids. Operational costs $F$ never enter price formation; they affect only investor cashflows post-clearing.
+
+\subsection{Mechanism Definition}
+
+A mechanism is defined by $(\mathcal{B},g,t)$:
+
+\begin{itemize}
+    \item \textbf{Bid space $\mathcal{B}$:}
+    \begin{itemize}
+        \item Farmer $i \in \mathcal{F}$ submits $b_i^F = (q_i, p_i)$ with $q_i \in \mathbb{R}_{+}$ (coverage requested) and $p_i \in \mathbb{R}_{+}$ (maximum willingness-to-pay).
+        \item Investor $j \in \mathcal{I}$ submits $b_j^I = (k_j, R_j)$ with $k_j \in \mathbb{R}_{+}$ (capital offered) and $R_j \in \mathbb{R}_{+}$ (minimum acceptable return).
+    \end{itemize}
+    \item \textbf{Allocation rule $g$:} Given bids $b=(b^F,b^I)$, determine coverage $x^\ast$ and allocations $(q_i^{\text{alloc}},k_j^{\text{alloc}})$.
+    \item \textbf{Transfer rule $t$:} Specify payments from farmers and returns to investors.
+\end{itemize}
+
+\subsection{Feasibility}
+
+Coverage $x$ is feasible if
+\[
+x \leq \sum_{i \in \mathcal{F}} q_i,
+\qquad
+\theta L x \leq \sum_{j \in \mathcal{I}} k_j \,\mathbf{1}\{R_j \le R\}.
+\]
+
+The first condition ensures farmer demand is sufficient, the second ensures investor capital can cover required reserves $C_{\mathrm{req}}(x)=\theta L x$.
+
+\subsection{Clearing Rule}
+
+The allocation rule selects the maximal feasible coverage
+\[
+x^\ast = \max \{x : x \text{ feasible}\}.
+\]
+
+The market-clearing premium is
+\[
+p^\ast = \min\left\{ p_i : \sum_{i \,:\, p_i \ge p^\ast} q_i \ge x^\ast \right\},
+\]
+and the market-clearing yield is
+\[
+R^\ast = \max\left\{ R_j : \sum_{j \,:\, R_j \le R^\ast} k_j \ge \theta L x^\ast \right\}.
+\]
+
+\subsection{Payment Rule}
+
+All accepted farmers pay $p^\ast$ per token:
+\[
+t_i^F = p^\ast q_i^{\text{alloc}}.
+\]
+
+All accepted investors earn return $R^\ast$ on committed capital:
+\[
+t_j^I = R^\ast k_j^{\text{alloc}}.
+\]
+
+If demand exceeds feasible coverage, pro-rata rationing applies:
+\[
+q_i^{\text{alloc}} = \rho q_i, \qquad 
+\rho = \frac{x^\ast}{\sum_i q_i}.
+\]
+
+This guarantees proportionality and avoids priority bias.
+
+\subsection{Cashflows and Diagnostic Identity}
+
+Investor cashflow after clearing is
+\[
+CF = p^\ast Q - XQL - F,
+\]
+with realized return
+\[
+R = \frac{CF}{K}.
+\]
+
+Ex post, the following accounting identity holds:
+\[
+(p^\ast - \hat{\pi}L)Q = R^\star K + F,
+\]
+where $\hat{\pi}$ is the market-implied drought probability and $R^\star$ the expected return. This identity is useful for attribution but plays no role in computing $p^\ast$.
+
+\subsection{Premium Decomposition}
+
+The clearing premium can be written ex post as
+\[
+p^\ast = \hat{\pi}L + \mu,
+\]
+where $\mu$ is the margin implied by bids. This decomposition is diagnostic only; the protocol never computes $p^\ast$ from $\hat{\pi}$ or $\mu$.
+
+\subsection{Equilibrium Properties}
+
+Auction outcomes satisfy
+\[
+p^\ast = p_d(x^\ast), \qquad 
+C_s(R^\ast) = C_{\mathrm{req}}(x^\ast).
+\]
+
+\textbf{Monotonicity.} If farmer demand increases, $p^\ast$ weakly increases. If investor capital supply increases, $R^\ast$ weakly decreases. This follows directly from cumulative bid aggregation.
+
+\textbf{Existence and uniqueness.} Under standard monotonicity of $p_d$ and $C_s$, the auction admits a unique clearing outcome $(x^\ast,p^\ast,R^\ast)$. If multiple equilibria arise, a tie-breaking rule (minimal $p^\ast$) applies.
+
+\textbf{Efficiency.} The full coverage rule maximizes feasible farmer coverage given investor constraints. This is allocatively efficient under uniform pricing, though it may expose investors to thin margins. Alternative rules (cutoffs, discriminatory allocations) reduce either efficiency or fairness.
+
+\textbf{Incentives.} Uniform-price auctions are not strategy-proof; large bidders may profit from demand reduction \citep{ausubel2002demand}. Mitigation measures include sealed bids, per-farmer caps, and pro-rata rationing. Thus, the mechanism is envy-free but not fully incentive compatible.
+
+\subsection{Analytical Approximations}
+
+For analysis and simulation, demand and supply can be parametrized as
+\[
+p_d(x) = A x^{-1/\varepsilon}, \quad \varepsilon > 0,
+\]
+\[
+C_s(R) = a + bR, \quad b > 0.
+\]
+
+Seasonal outcomes $(Q,p)$ are then fitted with a convex bonding curve
+\[
+p(x) = \max\!\left(p_{\min},\, p_{\min}\Big(1+\frac{\lambda x}{N}\Big)^k\right),
+\]
+providing a tractable approximation for forecasting ~\parencite{angeris2020improved,shiller2003bond}. This curve is used \emph{only for analysis}, never for live pricing.
+
+\subsection{Limitations and Future Research}
+
+Several limitations remain. The auction is susceptible to demand reduction and potential collusion despite commit--reveal protocols ~\parencite{blum1983coinflipping,buterin2015commit,parkes2014mechanism}. The diagnostic role of $\hat{\pi}$ requires external validation against actuarial or climate models. Functional forms for demand and supply are stylized and require empirical calibration. Repeated seasonal play may alter incentives. Future work should strengthen anti-collusion safeguards, test robustness under dynamic bidding, and calibrate the model with field data.
 
 	\section{Implementation}\label{sec:implementation}
 	Overview of implementation goals, strategy and architecture.
